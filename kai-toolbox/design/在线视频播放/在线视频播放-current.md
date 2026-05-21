@@ -1,6 +1,6 @@
 # 在线视频播放（技术方案）
 
-> 最后更新：2026-05-05
+> 最后更新：2026-05-13
 > 模版：完整-技术（template-tech.md）
 
 ## 1. 目标与边界
@@ -130,6 +130,8 @@ flowchart TD
   - mount 时 fetch `HEAD /probe?path=...`，根据 `X-Native-Playable` 决定走 `<video src=/stream...>` 还是 hls.js + `/hls/playlist.m3u8`
   - 关闭时 `<video>` 卸载 → fetch abort → 后端 process 兜底清理
   - 转码场景下额外显示"转码中"提示
+  - 播放器控制层使用自定义 `VideoPlayerControls`，底部按钮按「播放 / 跳转 / 音量 / 时间 / 画面操作 / 播放参数 / 集数 / 全屏」分组；移动端拆成两行以保证按钮不拥挤
+  - 横竖屏切换键优先调用浏览器 Screen Orientation API；不支持锁定方向时，仍切换播放器容器比例（横屏 `16:9`、竖屏 `9:16`）作为兜底
 
 ### 3.8 ChildrenList / api.ts / utils.ts（前端 / 修改）
 
@@ -234,6 +236,8 @@ sequenceDiagram
 | 规则 | 说明 |
 |------|------|
 | 视频文件识别（前端） | 由后端 `/api/treesize/config` 返回的扩展名白名单决定，前端不硬编码；白名单源头是 `application.yml: toolbox.video.extensions` |
+| 播放按钮布局（前端） | 移动端控制按钮必须保持 40px 以上触控目标，进度条可拖拽热区不低于 8px；参数菜单项使用更高行距避免误触 |
+| 横竖屏切换（前端） | 切换键不改变视频旋转角度；它只负责播放器横/竖比例与可选系统方向锁定，画面旋转仍由独立旋转键处理 |
 | 原生可播判定（后端） | 容器 ∈ {mp4, m4v, webm, ogg, mov} **且** 视频编码 ∈ {h264, vp8, vp9, av1} **且**（无音频流 **或** 音频编码 ∈ {aac, mp3, opus, vorbis}）→ true，否则 false |
 | HLS 分片长度 | 固定 6 秒；最后一片可能短于 6 秒（用 ffprobe 实际 duration 算） |
 | 分片索引越界 | 请求 idx ≥ 总分片数 → 404 |

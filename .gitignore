@@ -9,6 +9,9 @@ desktop.ini
 *.swp
 *~
 
+# Local AI tooling
+.claude/
+
 # Temp
 *.tmp
 *.bak

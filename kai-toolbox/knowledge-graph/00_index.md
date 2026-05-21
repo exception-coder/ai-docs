@@ -9,6 +9,7 @@
 | 场景 | 主题 | 一句话 | 关键词 | 文件 |
 |------|------|--------|--------|------|
 | ffmpeg 子进程编排与超时控制 | 进程生命周期 | stream drain 必须后台 + 主线程 waitFor + destroyForcibly + 启动期 reaper + JVM 退出 hook | ffmpeg / 缩略图 / HLS / probe / 子进程 / 孤儿 / timeout / transferTo / Semaphore | [scenarios/ffmpeg子进程编排与超时控制.md](scenarios/ffmpeg子进程编排与超时控制.md) |
+| 异步任务编排与进度推送 | 任务管线 / 状态机 / SSE | 两类任务两套线程池 + AtomicBoolean cancel + ProcessRegistry 杀子进程 + per-job 单订阅 SSE + 全局多订阅 TaskBroadcaster + SQLite 状态镜像 | 字幕作业 / 目录扫描 / 虚拟线程 / 平台线程 / cancelFlags / SseEmitterRegistry / TaskBroadcaster / TaskAssembler / TaskView / 任务中心 / 状态机 / SSE 事件 | [scenarios/异步任务编排与进度推送.md](scenarios/异步任务编排与进度推送.md) |
 
 ## 待补的场景卡
 
@@ -29,6 +30,15 @@
 | ProcessHandle / 启动期 reaper / shutdown hook | ffmpeg 子进程编排与超时控制 |
 | Semaphore / maxParallel / fair queue | ffmpeg 子进程编排与超时控制 |
 | `.tmp` / `.failed` marker | ffmpeg 子进程编排与超时控制 |
+| 字幕作业 / SubtitleJob / TRANSCRIBING / TRANSLATING / ANALYZING_AUDIO | 异步任务编排与进度推送 |
+| 目录扫描 / ScanRecord / ScanStatus / RUNNING | 异步任务编排与进度推送 |
+| 平台线程 / 虚拟线程 / newFixedThreadPool / newThreadPerTaskExecutor | 异步任务编排与进度推送 |
+| AtomicBoolean / cancelFlags / 协作式取消 / 启停管理 | 异步任务编排与进度推送 |
+| SseEmitter / SseEmitterRegistry / TaskBroadcaster / 多订阅 / 单订阅 | 异步任务编排与进度推送 |
+| TaskView / TaskAssembler / 任务中心 / `/tasks/events` | 异步任务编排与进度推送 |
+| SSE 事件名 / status / progress / completed / language / analysis | 异步任务编排与进度推送 |
+| spring.mvc.async.request-timeout / SSE 长连 | 异步任务编排与进度推送 |
+| 删除串行化 / deletionLock / 4 表事务 | 异步任务编排与进度推送 |
 
 ## 候选沉淀池
 

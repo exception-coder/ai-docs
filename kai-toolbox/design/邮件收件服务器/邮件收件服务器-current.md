@@ -342,3 +342,30 @@ toolbox:
 | SubEtha SMTP 3.1.7 使用 javax.mail，与 Jakarta EE 9+ 有包名冲突 | 编译/运行时报 NoClassDefFoundError | 使用 `com.sun.mail:jakarta.mail` 提供 jakarta.mail 包；pure-admin-service 同样的做法已验证可行 |
 | 前端展示 HTML 邮件存在 XSS 风险 | 注入脚本执行 | 前端用 iframe sandbox 渲染 body_html，禁止 same-origin 脚本 |
 | 同一 SMTP 会话 RCPT TO 多个收件人 | 每个收件人入库一行，body 共享但独立存储；实际场景极少多收件人，SQLite 冗余可接受 | **已确认**：每收件人一行，按 to_addr 索引过滤最简直接 |
+
+---
+
+## 9. 后续增强 TODO
+
+### 9.1 针对性投递（C 类）防线 [2026-05-10 登记，未实现]
+
+**背景**：当前 `recipient-domain-whitelist` 只能拦掉「不知道我们域」的盲扫（A 类开放中继扫描 + B 类字典投递），约占公网 25 端口噪音 90%。但脚本通过 DNS 查到 MX 后，可以针对性投递 `sales@/info@/admin@<我们的域>`（C 类），域过滤无效。
+
+**触发条件**：当看到大量针对性投递（C 类）灌库时再做，目前空配置默认全收，电商验证邮件场景下问题不大。
+
+**候选防线**（优先级从高到低）：
+
+| # | 方案 | 复杂度 | 预期效果 |
+|---|------|--------|---------|
+| 1 | `recipient-domain-whitelist` 升级为 `recipient-whitelist`，支持 `@domain.com`（域匹配）+ `user@domain.com`（精确地址）混合 | 低，~30 行 | 拦死除已知账号外的所有针对性投递；电商场景注册邮箱有限可枚举 |
+| 2 | Greylisting：首次连接返回 4xx 临时拒绝，记录 `(from, to, ip)`，N 分钟内重试才接受 | 中，需要 SQLite 新表 + 定时清理 | 大多数垃圾脚本不重试，正常邮件服务器会重试 |
+| 3 | SPF/DKIM/DMARC 验证（拒绝伪造发件域） | 高，需要引入 `dnsjava` + DKIM 验证库 | 拦截伪造 amazon/ebay 来源的钓鱼邮件 |
+| 4 | IP 黑名单接入（spamhaus / barracuda DNSBL） | 中，每次连接做 DNS 查询 | 拦已知坏 IP，但维护成本高 + 偶有误杀 |
+
+**首选**：#1（local-part 白名单）。改动小且对电商验证邮件场景最贴合——注册邮箱是有限可枚举的。
+
+**实现要点**（#1 为例）：
+- `MailProperties.recipientDomainWhitelist` 重命名为 `recipientWhitelist: List<String>`
+- `MailMessageHandler.isRecipientDomainAllowed()` 改为 `isRecipientAllowed()`：以 `@` 开头走域后缀匹配，含完整 `@xxx` 走精确地址匹配
+- `application.yml` 示例同时给两种条目
+- 兼容性：旧 `recipient-domain-whitelist` 配置项自动迁移成 `@xxx` 形式（或保留双字段一段时间）

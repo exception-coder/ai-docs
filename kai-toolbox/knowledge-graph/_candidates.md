@@ -40,6 +40,17 @@
 - 可信度：已代码验证
 - 后续动作：可整理入独立场景卡 `scenarios/路径越权与系统目录过滤.md`（待）
 
+## 2026-05-17 14:00 | 异步任务编排与启停 / 进度推送 三件套
+
+- 事实：后端两类异步任务（SubtitleJob 字幕作业、ScanRecord 目录扫描）跑在**按工作负载分裂**的两套线程池上——字幕用 `Executors.newFixedThreadPool` 平台线程（GPU-bound 硬上限），扫描用 `newThreadPerTaskExecutor + Thread.ofVirtual()`（IO-bound 弹性）。
+- 启停：每任务一个 `AtomicBoolean cancelled`，注册到 `ConcurrentHashMap<id, AtomicBoolean>`；`cancel(id)` 只置 flag 不打断线程；worker 在安全点 poll 自检 → throw InterruptedException → finally 清理。whisper / ffmpeg 子进程**额外**通过 `FfmpegProcessRegistry` 主动 destroyForcibly。
+- 通知前端：两条 SSE 频道并行存在——`SseEmitterRegistry`（per-jobId 单订阅，详情页用）+ `TaskBroadcaster`（全局多订阅 Set\<SseEmitter\>，任务中心用）。每次状态变化 worker 同时 publish 给两边。事件名约定见正式卡。
+- 状态权威是 SQLite：每次 status / progress 切换都立即 `UPDATE`，刷新页面先 GET 快照再 subscribe SSE 接续。`application.yml: spring.mvc.async.request-timeout: -1` 保证长连。
+- 涉及：`SubtitleService` / `ScanService` / `SseEmitterRegistry` / `TaskBroadcaster` / `TaskAssembler` / `TreeSizeController.listTasks/taskEvents`
+- 可信度：已代码验证（任务中心模块开发本会话内完整改完 + mvn / typecheck / build 全绿）
+- 后续动作：**已整理入 `scenarios/异步任务编排与进度推送.md`**
+- 待补：JVM 强杀留下的"僵尸 active 任务"启动期 reaper（把 ANALYZING_AUDIO / TRANSCRIBING / TRANSLATING / RUNNING 状态一律转 FAILED），目前依赖用户手动重跑覆盖。高频进度回调未节流，单用户够用，多用户需补。
+
 ## 2026-05-06 00:30 | `.ts` 扩展名的视频库特殊处理
 
 - 事实：`.ts` 既是 MPEG-TS 视频容器（HLS 分片格式），也是 TypeScript 源码扩展名。在 dev 机器上后者占绝大多数。

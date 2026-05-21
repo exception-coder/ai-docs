@@ -9,3 +9,6 @@
 |---|---|---|---|
 | 历史 SSH 主机测试时 name 校验失败 | （未归类）treesize | 待修复 | [历史SSH主机测试时name校验失败/历史SSH主机测试时name校验失败.md](历史SSH主机测试时name校验失败/历史SSH主机测试时name校验失败.md) |
 | SSH 扫描 prune 通配符被 shell 展开导致 find 报错 | （未归类）treesize | 待修复 | [SSH扫描prune通配符被shell展开导致find报错/SSH扫描prune通配符被shell展开导致find报错.md](SSH扫描prune通配符被shell展开导致find报错/SSH扫描prune通配符被shell展开导致find报错.md) |
+| 输入字符重复与方向键越过提示符 | Web终端 | 待修复 | [Web终端/输入字符重复与方向键越过提示符/输入字符重复与方向键越过提示符.md](Web终端/输入字符重复与方向键越过提示符/输入字符重复与方向键越过提示符.md) |
+| 移动端 Claude 交互模式输入未送达 | Web终端 | 待复现/修复 | [Web终端/移动端Claude交互模式输入未送达/移动端Claude交互模式输入未送达.md](Web终端/移动端Claude交互模式输入未送达/移动端Claude交互模式输入未送达.md) |
+| 全屏后父级操作按钮消失 | 在线视频播放 | 已修复 | [在线视频播放/全屏后父级操作按钮消失/全屏后父级操作按钮消失.md](在线视频播放/全屏后父级操作按钮消失/全屏后父级操作按钮消失.md) |

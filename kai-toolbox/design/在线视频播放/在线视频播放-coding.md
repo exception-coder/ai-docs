@@ -11,6 +11,8 @@
 - **路径越权**：所有按 path 读盘的接口必须先过 `PathAccessGuard`。
 - **进程清理**：FFmpeg 进程必须随 HTTP 请求生命周期清理，client 断开 → `destroyForcibly()`。
 - **零落盘**：playlist 内存拼接，segment stdout 管道直传，绝对禁止落盘。
+- **控制栏布局**：移动端按钮触控目标不低于 40px，进度条热区不低于 8px，控制区按主要播放动作和画面/参数动作拆成两行。
+- **横竖屏切换**：`VideoPlayer` 维护 `screenOrientation`，切换时先更新容器比例，再尝试调用 Screen Orientation API；不支持时静默兜底。
 
 ## 2. 接口入口指针
 
@@ -183,6 +185,16 @@ interface VideoPlayerModalProps {
 //   2. 如果 nativelyPlayable → <video src={streamUrl(...)}>
 //   3. 否则如果 ffmpegAvailable → 用 hls.js loadSource(hlsPlaylistUrl(...))
 //   4. 否则 → 显示"格式不支持，且 FFmpeg 不可用"提示
+
+// features/video-playback/VideoPlayer.tsx
+//   - 维护 screenOrientation: 'landscape' | 'portrait'
+//   - 横屏使用 aspect-video；竖屏使用 aspect-[9/16] + 移动端友好的最大宽高约束
+//   - toggleScreenOrientation(): 更新比例，必要时 requestFullscreen，再尝试 screen.orientation.lock
+
+// features/video-playback/VideoPlayerControls.tsx
+//   - 接收 screenOrientation / onToggleOrientation
+//   - 底部控制栏移动端两行、桌面端一行；所有高频按钮 h-10 w-10，桌面回落 h-9 w-9
+//   - 横竖屏按钮与画面旋转按钮分离：前者切容器方向，后者只旋转视频 transform
 
 // components/ChildrenList.tsx 修改
 //   - 接收 videoExtensions prop
