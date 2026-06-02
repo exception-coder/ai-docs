@@ -1,7 +1,7 @@
 # VS Code Tunnel — 编码摘要
 
 > 对应设计文档：[VS Code Tunnel-current.md](VS Code Tunnel-current.md)
-> 最后更新：2026-05-21
+> 最后更新：2026-05-25
 
 ---
 
@@ -20,6 +20,8 @@
 | R11 | `@PreDestroy` 杀子进程 | `TunnelManager#shutdown()` 加 `@PreDestroy` 调 `stop()` |
 | R12 | 不持久化 | 无 `Repository`、无 schema.sql、无 `@Entity` |
 | R13 | 错误日志保留 stderr 最后 1KB | 维护一个 1024 字节的 `ByteBuffer` 环形缓冲；ERROR 时写入 `lastError` |
+| R14 | 残留扫描/清理走 `code tunnel status` / `code tunnel kill` | `TunnelLauncher#runSubcommand(Duration, String...)` 统一同步子命令执行；不引入 `jps` / `tasklist` |
+| R15 | `killResidue` 进锁，`scanResidue` 不进锁 | `TunnelManager#killResidue()` 加 `synchronized`；`scanResidue()` 普通方法 |
 
 ---
 
@@ -33,6 +35,8 @@
 | POST | `/api/vscode-tunnel/start` | `TunnelController#start(StartRequest)` |
 | POST | `/api/vscode-tunnel/stop` | `TunnelController#stop()` |
 | GET | `/api/vscode-tunnel/events` | `TunnelController#events()`（SSE，content-type `text/event-stream`） |
+| GET | `/api/vscode-tunnel/residue` | `TunnelController#residue()` — 返回 `CommandResult(exitCode, output)`，包装 `code tunnel status` |
+| POST | `/api/vscode-tunnel/residue/kill` | `TunnelController#killResidue()` — 返回 `CommandResult`，包装 `code tunnel kill` |
 
 ---
 
@@ -117,12 +121,15 @@ public class TunnelController {
     public TunnelStatus start(@RequestBody StartRequest req);     // POST /start
     public TunnelStatus stop();                                   // POST /stop
     public SseEmitter events();                                   // GET /events
+    public CommandResult residue();                               // GET /residue
+    public CommandResult killResidue();                           // POST /residue/kill
 }
 ```
 
 - `start()`：先用 `TUNNEL_NAME` 正则校验（R8），不匹配抛 `ResponseStatusException(400)`；委托 `manager.start(name)`
 - `events()`：生成 `SSE_KEY_PREFIX + UUID.randomUUID()` 作为 SSE key → `sseRegistry.create(key)` 拿 emitter → 挂 `onCompletion/onTimeout/onError` 回调，全部调 `manager.unsubscribe(key)` → 最后 `manager.subscribe(key)`；subscribe 内部立即 publish 当前快照（R9）
-- `ensureEnabled()`：开关关闭时 `/start` 与 `/events` 返回 503
+- `residue()` / `killResidue()`：分别调 `manager.scanResidue()` / `manager.killResidue()`；都先 `ensureEnabled()` 拦截
+- `ensureEnabled()`：开关关闭时 `/start` / `/events` / `/residue*` 返回 503
 
 ### 3.7 com.exceptioncoder.toolbox.vscodetunnel.service.TunnelManager
 
@@ -148,6 +155,10 @@ public class TunnelManager {
     public synchronized TunnelStatus start(String tunnelName);            // R1: 非 STOPPED/ERROR 直接 return current
     public synchronized TunnelStatus stop();                              // R3: destroy → waitFor 5s → destroyForcibly
     @PreDestroy public void shutdown();                                   // R11: 关停时 stop()
+
+    // RK5 落地：残留扫描 / 清理
+    public CommandResult scanResidue();                                   // R15: 不进锁；委托 launcher.runSubcommand(5s, "status")
+    public synchronized CommandResult killResidue();                      // R15: 进锁；委托 launcher.runSubcommand(5s, "kill")
 
     // SSE 订阅管理（由 TunnelController 调用）
     public synchronized void subscribe(String key);                       // 加入集合 + 立即 publish 当前快照
@@ -175,10 +186,15 @@ public class TunnelLauncher {
     private final VsCodeTunnelProperties props;
 
     public Process spawn(String tunnelName) throws TunnelStartException;
+
+    // R14：包装 `code tunnel <args>` 的同步子命令调用（用于 status / kill）
+    public CommandResult runSubcommand(Duration timeout, String... extraArgs);
+
+    public record CommandResult(int exitCode, String output) {}
 }
 ```
 
-**实现：**
+**spawn() 实现：**
 ```java
 List<String> cmd = new ArrayList<>(List.of(
     props.codePath(), "tunnel",
@@ -193,6 +209,13 @@ try {
         "未找到 code 命令，请确认 VS Code 已安装且 CLI 已加入 PATH", e);
 }
 ```
+
+**runSubcommand() 实现要点：**
+- 共用 `resolveExecutable()` 把 `code` 解析成 Windows 上真实的 `code.cmd`
+- `ProcessBuilder` 同样 `redirectErrorStream(true)`
+- 用 `BufferedReader` 按行读 stdout，累积上限 8KB，超出截断并附加 `\n[output truncated]`
+- `process.waitFor(timeout.toMillis(), MILLISECONDS)`，false 则 `destroyForcibly()` 并返回 `exitCode=-1`
+- 启动失败（`IOException`）时**不**抛 `TunnelStartException`，返回 `CommandResult(-1, "无法启动 code 命令: " + msg)`，让 UI 直接展示
 
 ### 3.9 com.exceptioncoder.toolbox.vscodetunnel.service.TunnelOutputParser
 
@@ -270,3 +293,8 @@ public class TunnelStartException extends RuntimeException {
 | tunnelName 非法 | 入参 `"foo bar"` → 400 |
 | SSE 重连 | 启动后断开 EventSource，3s 后自动重连，立即收到快照 |
 | 手机扫码 | 二维码用手机相机扫，跳转 vscode.dev/tunnel/<name>，登录同账号可见本地 VS Code |
+| 残留扫描（无残留） | `code tunnel kill` 已先执行；`GET /residue` 返回 exitCode=0 + 输出含 "Not running" 或类似空闲文案 |
+| 残留扫描（有残留） | 上一次 JVM `kill -9` 留下 daemon；`GET /residue` 返回 exitCode=0 + 输出含 "Tunnel" / "Running" / 名称信息 |
+| 杀掉残留 | 当前 JVM 状态 STOPPED；`POST /residue/kill` 返回 exitCode=0；再次扫描应回到 "Not running" |
+| 残留 kill 与本进程并发 | 状态为 RUNNING 时前端按钮已 disabled；即使强行调用，`killResidue` 与 `start` 共用锁，不会出现"刚 spawn 就被 kill"的中间态 |
+| `code` 不在 PATH（scan/kill 时） | `runSubcommand` 不抛异常，返回 `CommandResult(-1, "无法启动 code 命令: ...")`，UI 原样展示 |

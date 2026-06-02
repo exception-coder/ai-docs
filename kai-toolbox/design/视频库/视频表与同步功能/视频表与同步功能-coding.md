@@ -5,11 +5,11 @@
 
 ## 0. 一句话设计结论
 
-新建 `treesize_video` 独立表（path PK，basic+media+language 字段一次建齐），新增 `POST /api/treesize/videos/sync` 把 `treesize_node` 中 ≥100KB 的视频用 `INSERT OR IGNORE` 同步过来，前端加同步按钮。本期不切换视频库列表数据源。
+新建 `treesize_video` 独立表（path PK，basic+media+language 字段一次建齐），新增 `POST /api/treesize/videos/sync` 把 `treesize_node` 中 ≥50KB 的视频用 `INSERT OR IGNORE` 同步过来，前端加同步按钮。本期不切换视频库列表数据源。
 
 ## 1. 核心业务规则
 
-- **过滤**：`is_dir=0 AND ext IN (VideoExtensionsProperties) AND size >= 102400` AND 对应 scan 的 `status='COMPLETED'`
+- **过滤**：`is_dir=0 AND ext IN (VideoExtensionsProperties) AND size >= 51200` AND 对应 scan 的 `status='COMPLETED'`
 - **同步语义**：`INSERT OR IGNORE`（path 主键冲突即跳过；保护下期填入的 language/media 数据）
 - **不更新 / 不删除**：已存在行任何字段都不动；node 表里被删的视频在 video 表里会变成 stale 行（本期不处理）
 - **新插入行的字段值**：basic 从 node 拷贝；`source_scan_id` = node 行的 scan_id；`first_synced_at` = `last_synced_at` = `System.currentTimeMillis()`；media/language 列全 NULL
@@ -171,7 +171,7 @@ public class VideoTableRepository {
 @Service
 public class VideoSyncService {
 
-    private static final long MIN_SIZE_BYTES = 100L * 1024;
+    private static final long MIN_SIZE_BYTES = 50L * 1024;
 
     private final JdbcTemplate jdbc;
     private final VideoTableRepository videoRepo;
@@ -188,7 +188,7 @@ public class VideoSyncService {
         // 1. 跑一次 COUNT 拿过滤掉的小文件数（用户感知噪音规模）
         long skippedTooSmall = countVideosBelowSize(exts);
 
-        // 2. SELECT 出所有合格视频节点（scan COMPLETED + ext + size>=100KB）
+        // 2. SELECT 出所有合格视频节点（scan COMPLETED + ext + size>=50KB）
         List<VideoRow> candidates = selectVideosFromNode(exts);
 
         long now = System.currentTimeMillis();
@@ -379,7 +379,7 @@ const syncMutation = useMutation({
           <div>已存在跳过 {result.skippedExisting} 条</div>
           {result.skippedTooSmall > 0 && (
             <div className="text-xs text-[var(--color-muted-foreground)]">
-              （另过滤掉 {result.skippedTooSmall} 个 &lt;100KB 的噪音文件）
+              （另过滤掉 {result.skippedTooSmall} 个 &lt;50KB 的噪音文件）
             </div>
           )}
           <div className="text-xs text-[var(--color-muted-foreground)]">耗时 {result.elapsedMs} ms</div>
@@ -445,7 +445,7 @@ syncing?: boolean
 | 约束 | 说明 |
 |------|------|
 | **只增不改** | 已存在 `path` 任何列都不动。已检测到的 language 字段不会被同步覆盖 |
-| **SQL 过滤优先** | 100KB 阈值在 SQL `WHERE` 里过滤；Java 端不再二次判 |
+| **SQL 过滤优先** | 50KB 阈值在 SQL `WHERE` 里过滤；Java 端不再二次判 |
 | **不走 SSE** | 同步阻塞执行，前端按钮 disabled + Loading；万级 < 1s，可接受 |
 | **不动 NodeRepository** | 视频库列表查询保持现状；不在本期切数据源 |
 | **不引入新依赖** | 使用现有 `JdbcTemplate` / `VideoExtensionsProperties` |
@@ -457,7 +457,7 @@ syncing?: boolean
 
 - **空表场景**：treesize_node 无视频时返回 `scannedFromNode=0 / insertedNew=0`，不报错
 - **重复点击**：连点两次，第二次应 `insertedNew=0 / skippedExisting=N`
-- **<100KB 过滤**：插入若干 50KB 的 .mp4 行到 treesize_node，确认不进 video 表，但出现在 `skippedTooSmall` 计数中
+- **<50KB 过滤**：插入若干 30KB 的 .mp4 行到 treesize_node，确认不进 video 表，但出现在 `skippedTooSmall` 计数中
 - **多 scan_id 同 path**：两个 scan 包含同一视频路径，确认只插一行，`source_scan_id` 取第一次出现的（与 `ORDER BY n.path` + IGNORE 行为对齐）
 - **status != COMPLETED 的 scan**：FAILED / IN_PROGRESS 的 scan 里的视频不应进 video 表
 - **大库性能**：treesize_node 含 10 万行（非视频 + 视频混合）时，同步 < 5s（开发机基准）

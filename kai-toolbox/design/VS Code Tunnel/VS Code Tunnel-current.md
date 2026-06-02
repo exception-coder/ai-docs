@@ -1,12 +1,14 @@
 # VS Code Tunnel
 
-> 最后更新：2026-05-21
+> 最后更新：2026-05-25
 > 模版：完整-技术（template-tech）
 >
 > 修订记录（本次落地后回写）：
 > - 类命名按项目约定带 `Tool` 后缀：`VsCodeTunnelToolDescriptor`（原文 `VsCodeTunnelDescriptor`）
 > - `ToolDescriptor.route()` 是必实现方法（接口契约要求），落地为 `/tools/vscode-tunnel`
 > - `SseEmitterRegistry` 实际是 `key → emitter` 一对一注册，**不是 topic 广播**；多浏览器订阅由 `TunnelManager` 自维护订阅 keys 集合（`vscode-tunnel:<uuid>`），状态切换时遍历 `publish` 实现"广播"
+> - **2026-05-25 RK5 落地**：JVM 强制退出残留的孤儿 `code tunnel` daemon，由「日志告警」升级为**主动扫描 + 主动清理**。新增 `GET /api/vscode-tunnel/residue`（包装 `code tunnel status`）与 `POST /api/vscode-tunnel/residue/kill`（包装 `code tunnel kill`）两个对外端点；前端 `RunningTunnelPanel` 增加「遗留扫描」子区块。
+> - **2026-05-25 RunningTunnelPanel**：在工具页头部新增常驻区块，无论状态如何都展示当前内存中的隧道（PID + 实时运行时长），空闲时显式提示"暂无运行中的隧道"，明示单例架构限制。
 
 在 kai-toolbox 前端新增一个工具页面，点击「启动」即可在本机后台运行 `code tunnel` 进程，将本地 VS Code 暴露为 `https://vscode.dev/tunnel/<name>` 远端入口；用户在手机浏览器打开该 URL，登录同一账号后，即可远程访问本机 VS Code（含已安装的 Claude Code 扩展），不依赖远程桌面、不依赖局域网。
 
@@ -114,9 +116,9 @@ flowchart LR
 |---|---|---|---|
 | `com.exceptioncoder.toolbox.vscodetunnel.config.VsCodeTunnelToolDescriptor` | 实现 `ToolDescriptor` 暴露工具元数据 | 被 `ToolRegistry` 收集 | id=`vscode-tunnel`、icon=`globe`、name=`VS Code Tunnel`、route=`/tools/vscode-tunnel` |
 | `com.exceptioncoder.toolbox.vscodetunnel.config.VsCodeTunnelProperties` | 绑定 `toolbox.vscode-tunnel.*` 配置：enabled、`code` 路径、tunnel 名、accept-license、stop-grace-ms、error-tail-bytes | 被 Launcher / Manager 读取 | 默认 `code-path=code`、`tunnel-name=${HOSTNAME}`（紧凑构造器兜底） |
-| `com.exceptioncoder.toolbox.vscodetunnel.api.TunnelController` | 暴露 `GET /status`、`POST /start`、`POST /stop`、`GET /events`(SSE) | 调 `TunnelManager` + `SseEmitterRegistry` | `/events` 为每个连接生成 `vscode-tunnel:<uuid>` 的 SSE key 并向 `TunnelManager.subscribe(key)` 注册；emitter 完成/超时/异常时自动 `unsubscribe` |
-| `com.exceptioncoder.toolbox.vscodetunnel.service.TunnelManager` | 单例状态机；`start()` / `stop()` 同步互斥；持 `Process` 与 `TunnelStatus` | 调 `TunnelLauncher`、`TunnelOutputParser`、`SseEmitterRegistry` | `synchronized` 保证状态切换原子；`@PreDestroy` 调 `stop()`；`start()` 在已 RUNNING 时幂等返回 |
-| `com.exceptioncoder.toolbox.vscodetunnel.service.TunnelLauncher` | 用 `ProcessBuilder` 启动 `code tunnel --accept-server-license-terms --name <name>`，合并 stderr 到 stdout | 被 Manager 调用 | 命令缺失（`IOException: Cannot run program`）时抛 `TunnelStartException`；环境变量保留 PATH |
+| `com.exceptioncoder.toolbox.vscodetunnel.api.TunnelController` | 暴露 `GET /status`、`POST /start`、`POST /stop`、`GET /events`(SSE)、`GET /residue`、`POST /residue/kill` | 调 `TunnelManager` + `SseEmitterRegistry` | `/events` 为每个连接生成 `vscode-tunnel:<uuid>` 的 SSE key 并向 `TunnelManager.subscribe(key)` 注册；emitter 完成/超时/异常时自动 `unsubscribe`；residue 两端点不参与状态机推送 |
+| `com.exceptioncoder.toolbox.vscodetunnel.service.TunnelManager` | 单例状态机；`start()` / `stop()` 同步互斥；持 `Process` 与 `TunnelStatus`；提供残留扫描/清理入口 | 调 `TunnelLauncher`、`TunnelOutputParser`、`SseEmitterRegistry` | `synchronized` 保证状态切换原子；`@PreDestroy` 调 `stop()`；`start()` 在已 RUNNING 时幂等返回；`scanResidue()` 不进锁、`killResidue()` 进锁防止与 `start()` 竞争 |
+| `com.exceptioncoder.toolbox.vscodetunnel.service.TunnelLauncher` | 用 `ProcessBuilder` 启动 `code tunnel ...` 主进程；同时承担 `code tunnel <subcommand>` 同步子命令（`status` / `kill`）的执行与输出捕获 | 被 Manager 调用 | 命令缺失抛 `TunnelStartException`；`runSubcommand()` 与 `spawn()` 共用 `resolveExecutable()`，stdout/stderr 合流并按字节上限截断，带超时强杀 |
 | `com.exceptioncoder.toolbox.vscodetunnel.service.TunnelOutputParser` | 按行扫描 stdout，识别设备码 / URL / 严重错误；回调给 Manager | 被 Manager 通过 stdout 转发线程调用 | 两条正则：`code\s+([A-Z0-9]{4}-[A-Z0-9]{4})`、`https?://vscode\.dev/tunnel/\S+`；命中即触发状态切换 |
 | `com.exceptioncoder.toolbox.vscodetunnel.domain.TunnelStatus` | 不可变快照：`state`、`tunnelUrl`、`deviceCode`、`deviceLoginUrl`、`tunnelName`、`pid`、`startedAt`、`lastError` | 被 Controller 返回；被 SSE 发送 | record；JSON 字段使用 camelCase；`state` 是 enum |
 | `com.exceptioncoder.toolbox.vscodetunnel.domain.TunnelState` | 枚举 `STOPPED / STARTING / AUTH_REQUIRED / RUNNING / STOPPING / ERROR` | 被 TunnelStatus 持有 | 状态机迁移规则在 Manager 中集中校验 |
@@ -134,6 +136,7 @@ flowchart LR
 | `frontend/src/features/vscode-tunnel/pages/VsCodeTunnelPage.tsx` | 页面壳：状态卡片 + URL/二维码 + 设备码引导 + 启动停止按钮 | 调子组件 + hook | 三状态视图：`STOPPED`（仅显示「启动」按钮）/`AUTH_REQUIRED`（设备码 + 跳转 GitHub login）/`RUNNING`（URL + 二维码 + 复制 + 「停止」） |
 | `frontend/src/features/vscode-tunnel/components/TunnelUrlCard.tsx` | URL 展示卡片：URL 文本 + 复制按钮 + 二维码 | 被 Page 调用 | 用 `qrcode.react` 渲染；URL 长度上限 256，超过截断 |
 | `frontend/src/features/vscode-tunnel/components/AuthPromptCard.tsx` | 首次登录引导：设备码大字 + 跳转 `https://github.com/login/device` 按钮 + 复制设备码 | 被 Page 调用 | 设备码字号 24px+ 等宽字体；状态切到 RUNNING 时自动消失 |
+| `frontend/src/features/vscode-tunnel/components/RunningTunnelPanel.tsx` | 常驻面板：单例隧道一行视图（状态徽章 + name + PID + 启动时间 + 实时运行时长 + URL）；嵌套「遗留扫描」子区块，触发 `/residue` 与 `/residue/kill` | 被 Page 调用 | 空闲时显式提示"暂无运行中的隧道（架构限制：同时仅 1 条）"；遗留扫描结果以 `<pre>` 原样展示 CLI 输出；「杀掉遗留 daemon」按钮仅在内存状态为 STOPPED 时启用，避免误杀本进程当前隧道 |
 | `frontend/src/features/vscode-tunnel/hooks/useTunnelStatus.ts` | 通过 SSE 订阅 `/api/vscode-tunnel/events`；首次挂载先 `GET /status` 拉快照 | 被 Page 调用 | 原生 `EventSource` + `useState`；EventSource 默认 3s 自动重连，无需手写 |
 | `frontend/src/features/vscode-tunnel/hooks/useTunnelControl.ts` | 封装 `POST /start` / `POST /stop`，提供 mutation + loading 状态 | 被 Page 调用 | 用 TanStack Query `useMutation`；按钮在 STARTING/STOPPING 期间禁用 |
 | `frontend/src/features/vscode-tunnel/types.ts` | 与后端 `TunnelStatus` 字段对齐的 TS 类型 | 被 hook / 组件引用 | enum `TunnelState` 直接复制后端枚举 |
@@ -264,6 +267,53 @@ sequenceDiagram
     Note over MGR: 不再推送 SSE（emitter 已被 Spring 关闭）
 ```
 
+### 4.6 孤儿进程扫描与清理（落地 RK5）
+
+JVM 被 `kill -9` / 任务管理器强结束 / 蓝屏时，`@PreDestroy` 不会触发，OS 层的 `code tunnel` daemon 会继续后台运行。新 JVM 启动后无法通过 `TunnelStatus` 感知它，但 `code tunnel` CLI 自带 `status` 与 `kill` 子命令可以查询和清理本机的 daemon。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant FE as RunningTunnelPanel
+    participant CTL as TunnelController
+    participant MGR as TunnelManager
+    participant LAU as TunnelLauncher
+    participant CLI as code tunnel CLI（同步子进程）
+
+    U->>FE: 点击「扫描遗留」
+    FE->>CTL: GET /api/vscode-tunnel/residue
+    CTL->>MGR: scanResidue()
+    MGR->>LAU: runSubcommand(5s, "status")
+    LAU->>CLI: spawn `code tunnel status`
+    CLI-->>LAU: stdout / exitCode
+    LAU-->>MGR: CommandResult(exitCode, output)
+    MGR-->>CTL: CommandResult
+    CTL-->>FE: 200 + { exitCode, output }
+    FE->>FE: 渲染原始输出到 <pre>
+
+    alt 内存状态 = STOPPED 且 用户判断有残留
+        U->>FE: 点击「杀掉遗留 daemon」
+        FE->>CTL: POST /api/vscode-tunnel/residue/kill
+        CTL->>MGR: killResidue()（synchronized，防与 start 竞争）
+        MGR->>LAU: runSubcommand(5s, "kill")
+        LAU->>CLI: spawn `code tunnel kill`
+        CLI-->>LAU: stdout / exitCode
+        LAU-->>MGR: CommandResult
+        MGR-->>CTL: CommandResult
+        CTL-->>FE: 200 + { exitCode, output }
+        FE->>FE: 自动重扫一次以确认
+    end
+```
+
+**关键设计点：**
+
+- `code tunnel status` / `kill` 都是本地操作，不需 GitHub 鉴权；exit code 0 表示成功，非 0 时把 stdout 原样回给前端，AI 不解释、用户自判
+- `runSubcommand()` 默认超时 5s，超时强杀，输出按 8KB 截断（避免恶意/异常长输出撑爆响应）
+- `killResidue()` **进锁**：避免在调用 `code tunnel kill` 的同时另一个请求触发 `start()`，否则会出现"刚启动就被自己 kill 掉"的竞态
+- `scanResidue()` **不进锁**：纯读，可与 start/stop 并发；最坏只是看到一个过渡态的输出
+- 前端「杀掉」按钮仅在内存状态为 STOPPED 时启用：`code tunnel kill` 会无差别杀掉本机所有 `code tunnel` daemon，包含本进程刚启动的；非 STOPPED 状态应走正常的「停止隧道」流程
+
 ---
 
 ## 5. 核心业务规则
@@ -283,6 +333,8 @@ sequenceDiagram
 | R11 | **`@PreDestroy` 必须杀掉子进程** | 防止 Spring Boot 退出后留下游离 `code tunnel` 占用账号配额 |
 | R12 | **不持久化任何状态** | 重启 Spring 即回到 STOPPED；凭证由 `code` CLI 自己存在 `~/.vscode-cli/` |
 | R13 | **错误日志保留 stderr 最后 1KB** | `redirectErrorStream(true)` 已合流，从 stdout 环形缓冲取尾段即可；前端只需要"知道大概为什么挂了" |
+| R14 | **残留扫描 / 清理走 VS Code CLI 自带子命令**，不自己 grep 进程列表 | `code tunnel status` 与 `code tunnel kill` 是官方权威接口，跨平台一致；不用 `jps` / `tasklist` 解析 commandline 来识别 daemon（脆弱、`code` 实际进程名可能是 `code-tunnel.exe` 或 electron 子进程） |
+| R15 | **`killResidue()` 必须 `synchronized`**，`scanResidue()` 不进锁 | kill 与 `start()` 互斥，避免"刚 spawn 就被自己杀掉"的竞态；scan 是纯读，与 start/stop 并发无害 |
 
 ### 5.1 状态机
 
@@ -405,7 +457,7 @@ toolbox:
 | RK2 | **同名 tunnel 冲突** | 同一账号同名 tunnel 重连会顶掉旧的 | 单例模型已规避同进程内冲突；跨设备同名由用户自行规避（默认名取 HOSTNAME 已基本避免） |
 | RK3 | **stdout 解析正则失效** | code CLI 升级后日志格式变化，URL/设备码识别不到 | 在 Parser 中保留原始未匹配行的环形日志（最近 50 行）；前端「诊断」面板可展示，方便后续更新正则 |
 | RK4 | **凭证失效**（GitHub OAuth token 过期） | 启动后立即又进入 AUTH_REQUIRED | 状态机已覆盖；前端逻辑相同：展示新设备码引导 |
-| RK5 | **Spring Boot 异常 crash 时 `@PreDestroy` 不触发** | 留下游离 `code tunnel` 子进程 | 启动新进程前调用 `TunnelLauncher.killOrphan()`：用 `jps` 或 `tasklist /fi "imagename eq code.exe"` 查找命令行含 `tunnel --name <我们用的名字>` 的进程并 kill；第一版只做日志告警，不自动 kill（用户态进程，避免误杀用户手动开的 tunnel） |
+| RK5 | **Spring Boot 异常 crash 时 `@PreDestroy` 不触发** | 留下游离 `code tunnel` 子进程 | **已落地（2026-05-25）**：见 4.6 节。新增 `GET /residue`（包装 `code tunnel status`）做扫描、`POST /residue/kill`（包装 `code tunnel kill`）做主动清理；前端 `RunningTunnelPanel` 暴露「扫描遗留 / 杀掉遗留 daemon」按钮，原"日志告警 + 不自动 kill"方案作废。Windows 上 JVM 仍无 Job Object 绑定，强 kill JVM 时子进程仍会残留，但用户可一键清理 |
 | RK6 | **手机端二维码扫描需要同账号登录 vscode.dev** | 用户体验上需要登录两次（一次在 GitHub device，一次在 vscode.dev 网页） | 文档/UI 中明确告知；vscode.dev 登录是微软侧行为，本项目无能为力 |
 | RK7 | **跨平台**：第一版只测过 Windows | macOS/Linux 上 `code` 路径可能不同（如 macOS 是 `/usr/local/bin/code`） | `code-path` 已可配置；只要 CLI 能找到，逻辑无平台差异；非 Windows 跑成功率取决于用户环境，不做额外特殊处理 |
 | RK8 | **SSE 与浏览器代理**：某些公司网络代理不放行长连接 | 前端无法收到状态更新 | 第一版接受此风险；后续若有需要可降级为轮询（前端 `setInterval(fetchStatus, 2s)` ） |
@@ -419,5 +471,6 @@ toolbox:
 - **隧道历史**：把每次启动的 tunnelName + 时间持久化到 SQLite，方便回顾
 - **多隧道**：支持启动 N 个隧道（如同时暴露公司机 + 家里 NAS）
 - **手机端专用页面**：基于 [浏览器请求-变量芯片化] 同款 Tailwind 移动端优化，给 vscode.dev/tunnel 提供一个"已连接"指示页
-- **健康检查**：定期 ping `code tunnel status` 子命令，识别 RUNNING 状态下的隐性断线
+- **健康检查**：定期 ping `code tunnel status`（复用本期落地的 `runSubcommand` 通道）识别 RUNNING 状态下的隐性断线
 - **日志面板**：在 UI 暴露最近 N 行原始 stdout，方便调试解析失败的情况
+- **Windows Job Object 绑定**：通过 JNA 把 `code tunnel` 子进程加入 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 的 Job，JVM 被 kill -9 时 OS 自动清理子进程，彻底关闭 RK5 残留窗口

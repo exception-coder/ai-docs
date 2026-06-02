@@ -44,10 +44,10 @@
 
 | 字段 | 类型 | 含义 |
 |------|------|------|
-| `scannedFromNode` | `integer` | 通过 SQL 过滤（ext + size>=100KB）后扫描到的视频节点数；等于 `insertedNew + skippedExisting` |
+| `scannedFromNode` | `integer` | 通过 SQL 过滤（ext + size>=50KB）后扫描到的视频节点数；等于 `insertedNew + skippedExisting` |
 | `insertedNew` | `integer` | 本次新插入到 `treesize_video` 的行数 |
 | `skippedExisting` | `integer` | `path` 已存在被跳过的行数 |
-| `skippedTooSmall` | `integer` | 大小 < 100KB 被过滤掉的视频文件数（信息性字段，让用户感知噪音规模） |
+| `skippedTooSmall` | `integer` | 大小 < 50KB 被过滤掉的视频文件数（信息性字段，让用户感知噪音规模） |
 | `elapsedMs` | `integer` | 同步耗时，毫秒 |
 
 #### 字段约束

@@ -1,0 +1,46 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.5.2 Chrome/142.0.7444.265 Electron/39.6.1 Safari/537.36" version="29.5.2">
+  <diagram name="第 1 页" id="NLtJFdPtkkWyYDoPRXAl">
+    <mxGraphModel dx="2066" dy="1468" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-12" edge="1" parent="1" source="jcCsgoo_oQWc8bGm01GD-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="jcCsgoo_oQWc8bGm01GD-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="简化语义文本抽取" vertex="1">
+          <mxGeometry height="60" width="120" x="240" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="存储至向量库" vertex="1">
+          <mxGeometry height="60" width="120" x="240" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="向量库TopK 相似检索" vertex="1">
+          <mxGeometry height="60" width="120" x="240" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-11" parent="1" style="text;whiteSpace=wrap;strokeColor=default;sketch=1;curveFitting=1;jiggle=2;shadow=1;glass=1;rounded=1;" value="岗位：Java后端工程师&#xa;级别：高级&#xa;核心技能：&#xa;- Java&#xa;- Spring Boot&#xa;- MySQL&#xa;- Redis&#xa;- Kafka&#xa;- 微服务架构&#xa;经验要求：5年以上&#xa;学历：本科及以上&#xa;业务领域：电商&#xa;&#xa;&#xa;&#xa;&#xa;" vertex="1">
+          <mxGeometry height="200" width="150" x="510" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-14" parent="1" style="text;whiteSpace=wrap;strokeColor=default;sketch=1;curveFitting=1;jiggle=2;shadow=1;glass=1;rounded=1;" value="不能直接存结构化 JSON&#xa;&#xa;embedding 更擅长处理自然语言上下文，而不是纯标签列表。" vertex="1">
+          <mxGeometry height="200" width="150" x="620" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-21" edge="1" parent="1" source="jcCsgoo_oQWc8bGm01GD-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jcCsgoo_oQWc8bGm01GD-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-15" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="MySQL&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;" vertex="1">
+          <mxGeometry height="80" width="60" x="280" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-22" edge="1" parent="1" source="jcCsgoo_oQWc8bGm01GD-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jcCsgoo_oQWc8bGm01GD-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-16" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="Vector DB" vertex="1">
+          <mxGeometry height="80" width="60" x="490" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-18" parent="1" style="text;whiteSpace=wrap;html=1;sketch=1;curveFitting=1;jiggle=2;shadow=1;rounded=1;glass=1;strokeColor=default;" value="&lt;p data-pm-slice=&quot;0 0 []&quot;&gt;全量原始字段&lt;/p&gt;&lt;p&gt;抽取字段&lt;/p&gt;&lt;p&gt;dup_group_id&lt;/p&gt;&lt;p&gt;sample_weight&lt;/p&gt;" vertex="1">
+          <mxGeometry height="140" width="110" x="210" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="jcCsgoo_oQWc8bGm01GD-20" parent="1" style="text;whiteSpace=wrap;html=1;strokeColor=default;rounded=1;sketch=1;curveFitting=1;jiggle=2;shadow=1;glass=1;" value="&lt;li data-start=&quot;1322&quot; data-end=&quot;1334&quot;&gt;&lt;p data-start=&quot;1324&quot; data-end=&quot;1334&quot;&gt;posting_id&lt;/p&gt;&lt;/li&gt;&lt;li data-start=&quot;1335&quot; data-end=&quot;1354&quot;&gt;&lt;p data-start=&quot;1337&quot; data-end=&quot;1354&quot;&gt;embedding(简化语义文本)&lt;/p&gt;&lt;/li&gt;&lt;li data-start=&quot;1355&quot; data-end=&quot;1401&quot;&gt;&lt;p data-start=&quot;1357&quot; data-end=&quot;1401&quot;&gt;metadata（job_family/level/city/dup_group_id）&lt;/p&gt;&lt;/li&gt;" vertex="1">
+          <mxGeometry height="230" width="290" x="410" y="620" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

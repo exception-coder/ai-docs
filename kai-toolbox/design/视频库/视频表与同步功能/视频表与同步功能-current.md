@@ -27,7 +27,7 @@
   - **person_age**（年龄段/性别/置信度）—— 由"视频人物年龄识别"模块写入
   - **series**（系列签名/集数）—— 由"视频名称归类"模块写入
   - **visual_cluster**（聚类 id / 标签）—— 由"视频嵌入与相似聚类"模块写入
-- 提供"同步视频库"按钮：把 `treesize_node` 里 ≥100KB 的视频文件汇总到 `treesize_video`
+- 提供"同步视频库"按钮：把 `treesize_node` 里 ≥50KB 的视频文件汇总到 `treesize_video`
 - 同步规则：按 `path` 判重；**不存在才插入**，已存在保持不动（保护所有子模块已写入的衍生数据）
 - 定义任务跟踪表 `video_processing_job`（schema 在本文档，行为在各子模块）
 
@@ -49,7 +49,7 @@
 | 主键 | `path TEXT PRIMARY KEY` | 跨 scan_id 持久化（同 favorite/recent 设计）；重扫不丢语言/媒体属性数据 |
 | 字段策略 | 三类字段一次建齐（basic + media + language） | 避免下期 ALTER 多次；未填字段留 NULL |
 | 同步语义 | `INSERT OR IGNORE`（path 已存在则跳过） | 保护下期填入的 language/media 数据不被覆盖 |
-| 过滤阈值 | `size >= 100 * 1024`（100 KB） | 与前端 video-library 列表过滤阈值对齐，挡住缩略图/损坏样本/空壳 |
+| 过滤阈值 | `size >= 50 * 1024`（50 KB） | 与前端 video-library 列表过滤阈值对齐，挡住缩略图/损坏样本/空壳 |
 | 扩展名白名单 | 复用 `VideoExtensionsProperties.getExtensions()` | 与 `NodeRepository.findVideos` 同源，避免分裂 |
 | 同步触发 | 仅手动按钮触发 | 数据演化第一步求稳，自动同步留给下期 |
 | 同步执行 | 同步阻塞 + 一次性 batch insert | 万级行 SQLite batch insert 秒级完成；不上 SSE 简化前后端 |
@@ -64,7 +64,7 @@
 flowchart TD
     Start(["用户点击「同步视频库」按钮"]) --> Call["POST /api/treesize/videos/sync"]
     Call --> Read["VideoSyncService.sync()"]
-    Read --> Query["SELECT path, name, parent_path, ext, size, scan_id\nFROM treesize_node\nWHERE is_dir=0\n  AND ext IN (videoExt 白名单)\n  AND size >= 102400"]
+    Read --> Query["SELECT path, name, parent_path, ext, size, scan_id\nFROM treesize_node\nWHERE is_dir=0\n  AND ext IN (videoExt 白名单)\n  AND size >= 51200"]
     Query --> Loop{"对每行节点"}
     Loop -->|"path 已存在于\ntreesize_video"| Skip["skippedExisting++\n保持原行（含 language/media 不动）"]
     Loop -->|"path 不存在"| Insert["INSERT INTO treesize_video\n  (path, name, parent_path, ext, size,\n   source_scan_id, first_synced_at, last_synced_at)\n  VALUES (...)"]

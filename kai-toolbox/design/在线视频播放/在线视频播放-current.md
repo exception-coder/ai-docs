@@ -241,7 +241,8 @@ sequenceDiagram
 | 原生可播判定（后端） | 容器 ∈ {mp4, m4v, webm, ogg, mov} **且** 视频编码 ∈ {h264, vp8, vp9, av1} **且**（无音频流 **或** 音频编码 ∈ {aac, mp3, opus, vorbis}）→ true，否则 false |
 | HLS 分片长度 | 固定 6 秒；最后一片可能短于 6 秒（用 ffprobe 实际 duration 算） |
 | 分片索引越界 | 请求 idx ≥ 总分片数 → 404 |
-| 转码 fast-path | 当原始视频编码 ∈ {h264} **且** 音频编码 ∈ {aac, mp3} 时，HLS 分片用 `-c:v copy -c:a copy` 重封装到 mpegts；其它走 `-c:v libx264 -preset veryfast -c:a aac` |
+| 转码 fast-path | 当原始视频编码 ∈ {h264} **且** 音频编码 ∈ {aac, mp3} 时，HLS 分片用 `-c:v copy -c:a copy` 重封装到 mpegts；其它走重编码（编码器按 `toolbox.ffmpeg.hwaccel` 选 libx264/h264_nvenc 等）|
+| 小帧兜底（重编码） | 软解重编码路径加 `-vf scale=max(iw,256):max(ih,144):force_original_aspect_ratio=increase:force_divisible_by=2`，把 QCIF 级老视频（KDDI .amc/.3gp 的 mpeg4/h263，如 96x80）放大到 NVENC 最小帧之上，避免 `h264_nvenc InitializeEncoder failed` 吐空段导致 hls.js fragParsingError；正常尺寸 no-op，hwDecode（VRAM 帧）路径不加 |
 | FFmpeg 不可用 | `/probe` 仍能返回（基于扩展名的简单判定走兜底）；`/hls/*` 直接 503 |
 | 路径校验失败 | 400 `{message: "path outside scan root"}` |
 | 文件不存在 / 目录被当文件 | 404 / 400 |
