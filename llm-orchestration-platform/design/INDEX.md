@@ -2,6 +2,17 @@
 
 > 本目录承载 AI 生成的设计文档与长期演进版本。文件名一律 `-current.md`，配套 coding 摘要为 `-coding.md`；不带日期、不带版本号，历史变更靠 git log。
 
+## 聊天回答一键复制
+- 文件：`聊天回答一键复制/聊天回答一键复制-current.md`
+- 摘要：前端聊天页 `Chat.tsx` assistant 消息底部新增"复制回答"按钮，复制 `msg.content` 原文（Markdown 源），优先 navigator.clipboard、移动端非安全上下文降级 textarea+execCommand，1.5s "已复制"反馈。纯前端单文件改动，无后端变更。轻量模版，无 coding.md。
+- 大纲：代码入口 / 交互契约 / 核心流程图 / 关键规则 / 失败行为 / 升级触发条件
+
+## 岗位技能趋势聚合
+- 文件：`岗位技能趋势聚合/岗位技能趋势聚合-current.md` · [api](岗位技能趋势聚合/岗位技能趋势聚合-api-current.md) · [coding](岗位技能趋势聚合/岗位技能趋势聚合-coding.md)
+- 摘要：新增 `skilltrend` 子系统。入库路径增挂"岗位族归一(自由填+别名映射表,未命中调LLM回写)+JD元数据落库(含 rawText)"；聚合按(标准岗位族,日期)从关系表枚举 JD,LLM **一次10条批量**抽取归一技能词并推断级别(SeniorityLevel),按(family,level)聚合词频/占比并按可靠阈值筛"主流可靠技能",每日生成快照;异步复用 llm-task-management。新增 4 表:job_posting_meta / job_family_alias / skill_trend_snapshot / skill_trend_item。
+- 大纲：目标与边界(含4决策表)/ 整体架构图 / 模块拆分(6)/ 关键交互(入库归一+批量聚合+查询 3 图)/ 核心业务规则(R1-R11)/ 编码落点(四模块树)/ 数据与依赖变更(4表)/ 风险待确认 / 验证要点
+- 接口：POST /aggregate（异步触发）· GET /daily（当日榜单）· GET /trend（历史趋势）
+
 ## 个人简历优化智能体
 - 文件：`个人简历优化智能体/个人简历优化智能体-current.md`
 - 摘要：为 kai-toolbox 简历模块提供 WORK / PROJECT / SELF_INTRO 三段单步 AI 改写能力，强制以目标岗位 JD 为锚点对齐硬技能关键词，输出结构化 JSON 让前端做 diff 预览。架构上仅复用 LLMOrchestrationService 单步 ChatModel 调用，不引入 Tool / Graph 编排。

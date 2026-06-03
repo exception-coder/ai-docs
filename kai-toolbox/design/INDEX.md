@@ -35,6 +35,8 @@
 | └ Markdown 渲染 | 设计中 | 轻量 | [移动端 Claude 客户端/Markdown 渲染/Markdown 渲染-current.md](移动端%20Claude%20客户端/Markdown%20渲染/Markdown%20渲染-current.md) |
 | └ 会话重命名与删除 | 设计中 | 完整-技术 | [移动端 Claude 客户端/会话重命名与删除/会话重命名与删除-current.md](移动端%20Claude%20客户端/会话重命名与删除/会话重命名与删除-current.md) · [API](移动端%20Claude%20客户端/会话重命名与删除/会话重命名与删除-api-current.md) · [coding](移动端%20Claude%20客户端/会话重命名与删除/会话重命名与删除-coding.md) |
 | └ slash 命令补全 | 设计中 | 轻量 | [移动端 Claude 客户端/slash命令补全/slash命令补全-current.md](移动端%20Claude%20客户端/slash命令补全/slash命令补全-current.md) |
+| └ 命令菜单与模型切换 | 设计中 | 轻量 | [移动端 Claude 客户端/命令菜单与模型切换/命令菜单与模型切换-current.md](移动端%20Claude%20客户端/命令菜单与模型切换/命令菜单与模型切换-current.md) |
+| └ 对话分叉与代码回溯 | 设计中 | 完整-技术 | [移动端 Claude 客户端/对话分叉与代码回溯/对话分叉与代码回溯-current.md](移动端%20Claude%20客户端/对话分叉与代码回溯/对话分叉与代码回溯-current.md) |
 | 项目管理 | 设计中 | 完整-业务 | [项目管理/项目管理-current.md](项目管理/项目管理-current.md) · [API](项目管理/项目管理-api-current.md) · [coding](项目管理/项目管理-coding.md) |
 | JSON 格式化大文件优化 | 设计中 | 完整-技术 | [JSON格式化大文件优化/JSON格式化大文件优化-current.md](JSON格式化大文件优化/JSON格式化大文件优化-current.md) · [coding](JSON格式化大文件优化/JSON格式化大文件优化-coding.md) |
 | formatter 多格式扩展 | 落地中 | 完整-技术 | [formatter-多格式扩展/formatter-多格式扩展-current.md](formatter-多格式扩展/formatter-多格式扩展-current.md) · [coding](formatter-多格式扩展/formatter-多格式扩展-coding.md) |
